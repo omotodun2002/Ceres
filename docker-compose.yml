@@ -23,7 +23,7 @@ services:
     container_name: ceres_pgadmin
     restart: always
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@ceres.local
+      PGADMIN_DEFAULT_EMAIL: admin@ceres.com
       PGADMIN_DEFAULT_PASSWORD: admin
     ports:
       - "5050:80"
