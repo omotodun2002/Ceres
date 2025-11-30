@@ -33,11 +33,12 @@ $ ceres search "air quality monitoring stations"
 
 - [x] Database schema with pgvector
 - [x] Repository pattern for datasets
-- [ ] CKAN client
-- [ ] OpenAI embeddings integration
+- [x] CKAN
+- [x] OpenAI embeddings integration
 - [ ] CLI interface
 - [ ] REST API
 - [ ] Multi-portal configuration
+- [ ] Harvest command implementation
 
 ## Tech Stack
 
