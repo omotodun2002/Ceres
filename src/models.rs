@@ -1,12 +1,12 @@
 use chrono::{DateTime, Utc};
 use pgvector::Vector;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use sqlx::prelude::FromRow;
 use sqlx::types::Json;
 use uuid::Uuid;
 
 /// Rappresentazione completa di una riga della tabella 'datasets'
-#[derive(Debug, FromRow, Serialize, Deserialize)]
+#[derive(Debug, FromRow, Serialize)]
 pub struct Dataset {
     pub id: Uuid,
     pub original_id: String,

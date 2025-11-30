@@ -8,8 +8,8 @@ use tracing_subscriber::FmtSubscriber;
 
 use ceres::config::{Config, Command};
 use ceres::clients::openai::OpenAIClient;
+use ceres::clients::ckan::CkanClient;
 use ceres::storage::DatasetRepository;
-use ceres::pg::DatasetRepository as PgRepository;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -40,11 +40,41 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// Commands
     match config.command {
         Command::Harvest { portal_url } => {
-            info!("Starting harvest from portal: {}", portal_url);
-            /// TODO: CkanClient usage to harvest datasets
-            /// let ckan_client = CkanClient::new(&portal_url);
-            /// ... harvesting logic, i'll do this later ...
-            println!("Harvesting from {} is not yet implemented.", portal_url);
+            info!("Starting harvest for: {}", portal_url);
+            
+            // 1. Inizializza il client CKAN
+            let ckan = CkanClient::new(&portal_url).expect("Invalid CKAN configuration");
+            
+            // 2. Scarica la lista degli ID (molto veloce)
+            info!("Fetching package list...");
+            let ids = ckan.list_package_ids().await?;
+            info!("Found {} datasets. Starting processing...", ids.len());
+
+            // 3. Itera (in un caso reale useresti buffer_unordered per parallelizzare)
+            for (i, id) in ids.iter().enumerate() {
+                // Logica semplice sequenziale per ora
+                match ckan.show_package(id).await {
+                    Ok(ckan_data) => {
+                        // Conversione
+                        let mut new_dataset = CkanClient::into_new_dataset(ckan_data, &portal_url);
+                        
+                        // TODO: Qui è dove chiameresti OpenAI per l'embedding
+                        // if let Ok(emb) = openai_client.get_embeddings(&new_dataset.title).await {
+                        //    new_dataset.embedding = Some(emb);
+                        // }
+
+                        // Upsert nel DB
+                        match repo.upsert(&new_dataset).await {
+                            Ok(_) => info!("[{}/{}] Indexed: {}", i+1, ids.len(), new_dataset.title),
+                            Err(e) => error!("Failed to save {}: {}", id, e),
+                        }
+                    }
+                    Err(e) => error!("Failed to fetch details for {}: {}", id, e),
+                }
+                
+                // Piccolo sleep per essere gentili con il server (opzionale ma consigliato)
+                // tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            }
         }
         Command::Search { query, limit } => {
             info!("Searching for: '{}' (limit: {})", query, limit);

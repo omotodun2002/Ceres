@@ -11,8 +11,8 @@ use serde_json::Value;
 struct CkanResponse<T> {
     success: bool,
     result: T,
-    /// CKAN may also return "error" field on failure
-    /// error: Option<Value>,
+    // CKAN may also return "error" field on failure
+    // error: Option<Value>,
 }
 
 /// DTO for CKAN dataset creation response
@@ -36,12 +36,12 @@ pub struct CkanClient {
 
 impl CkanClient {
     pub fn new(base_url_str: &str) -> Result<Self, AppError> {
-        /// Robust parsing of base URL
+        // Robust parsing of base URL
         let base_url = Url::parse(base_url_str)
             .map_err(|_| AppError::Generic(format!("Invalid CKAN URL: {}", base_url_str)))?;
 
-        /// It's good practice to set a specific User-Agent.
-        /// Many portals (e.g., dati.gov.it) block generic clients or those without a User-Agent.
+        // It's good practice to set a specific User-Agent.
+        // Many portals (e.g., dati.gov.it) block generic clients or those without a User-Agent.
         let client = Client::builder()
             .user_agent("Ceres/0.1 (semantic-search-bot)")
             .build()?;
@@ -98,11 +98,11 @@ impl CkanClient {
     /// Helper method to convert the CKAN DTO into Ceres' internal model
     /// This prepares the data to be saved in the DB.
     pub fn into_new_dataset(dataset: CkanDataset, portal_url: &str) -> NewDataset {
-        /// Build the public URL of the dataset (not the API URL)
-        /// Usually it's: BASE_URL/dataset/NAME
+        // Build the public URL of the dataset (not the API URL)
+        // Usually it's: BASE_URL/dataset/NAME
         let landing_page = format!("{}/dataset/{}", portal_url.trim_end_matches('/'), dataset.name);
 
-        /// Prepare the raw metadata
+        // Prepare the raw metadata
         let metadata_json = serde_json::Value::Object(dataset.extras.clone());
 
         NewDataset {
@@ -111,7 +111,7 @@ impl CkanClient {
             url: landing_page,
             title: dataset.title,
             description: dataset.notes,
-            embedding: None, /// to be filled later
+            embedding: None, // to be filled later
             metadata: metadata_json,
         }
     }

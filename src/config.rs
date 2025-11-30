@@ -1,3 +1,5 @@
+use clap::{Parser, Subcommand};
+
 #[derive(Parser, Debug)]
 #[command(name = "ceres")]
 pub struct Config {

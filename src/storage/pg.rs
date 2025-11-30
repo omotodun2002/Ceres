@@ -18,7 +18,7 @@ impl DatasetRepository {
     /// (source_portal, original_id) esiste già.
     pub async fn upsert(&self, new_data: &NewDataset) -> Result<Uuid, AppError> {
         // Convertiamo il Vec<f32> in pgvector::Vector se presente
-        let embedding_vector = new_data.embedding.as_ref().map(Vector::from);
+        let embedding_vector = new_data.embedding.as_ref().map(|v| Vector::from(v.clone()));
 
         let rec = sqlx::query!(
             r#"
