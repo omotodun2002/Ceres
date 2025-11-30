@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/images/logo.png" alt="Ceres Logo" width="600"/>
+  <img src="assets/images/logo.png" alt="Ceres Logo" width="800"/>
   <h1>🌾 Ceres</h1>
 </div>
 
