@@ -3,6 +3,7 @@ name = "Ceres"
 version = "0.0.1"
 edition = "2024"
 authors = ["Andrea Bozzo"]
+license = "Apache-2.0"
 
 [dependencies]
 # --- Core Async & Runtime ---
