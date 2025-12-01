@@ -1,6 +1,8 @@
 use crate::error::AppError;
-use crate::models::{Dataset, NewDataset};
+use crate::models::{DatabaseStats, Dataset, NewDataset, SearchResult};
+use chrono::{DateTime, Utc};
 use pgvector::Vector;
+use sqlx::types::Json;
 use sqlx::{PgPool, Pool, Postgres};
 use uuid::Uuid;
 
@@ -200,6 +202,162 @@ impl DatasetRepository {
 
         Ok(result)
     }
+
+    /// Ricerca semantica usando cosine similarity con pgvector
+    ///
+    /// Cerca dataset simili alla query fornita usando la distanza coseno tra embeddings.
+    /// Restituisce solo dataset che hanno embeddings generati, ordinati per similarità decrescente.
+    ///
+    /// # Arguments
+    ///
+    /// * `query_vector` - Il vettore di embedding della query di ricerca
+    /// * `limit` - Numero massimo di risultati da restituire
+    ///
+    /// # Returns
+    ///
+    /// Una lista di `SearchResult` ordinata per similarity score decrescente (migliori match per primi).
+    ///
+    /// # Errors
+    ///
+    /// Returns `AppError::DatabaseError` if the database query fails.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use pgvector::Vector;
+    /// use ceres::storage::DatasetRepository;
+    /// # use sqlx::PgPool;
+    ///
+    /// # async fn example(repo: DatasetRepository) -> Result<(), Box<dyn std::error::Error>> {
+    /// let query_vector = Vector::from(vec![0.1; 1536]);
+    /// let results = repo.search(query_vector, 10).await?;
+    ///
+    /// for result in results {
+    ///     println!("[{:.2}] {}", result.similarity_score, result.dataset.title);
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn search(
+        &self,
+        query_vector: Vector,
+        limit: usize,
+    ) -> Result<Vec<SearchResult>, AppError> {
+        let results = sqlx::query_as!(
+            SearchResultRow,
+            r#"
+            SELECT
+                id,
+                original_id,
+                source_portal,
+                url,
+                title,
+                description,
+                embedding as "embedding: _",
+                metadata as "metadata!: _",
+                first_seen_at,
+                last_updated_at,
+                1 - (embedding <=> $1) as "similarity_score!: f32"
+            FROM datasets
+            WHERE embedding IS NOT NULL
+            ORDER BY embedding <=> $1
+            LIMIT $2
+            "#,
+            query_vector,
+            limit as i64
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(AppError::DatabaseError)?;
+
+        Ok(results
+            .into_iter()
+            .map(|row| SearchResult {
+                dataset: Dataset {
+                    id: row.id,
+                    original_id: row.original_id,
+                    source_portal: row.source_portal,
+                    url: row.url,
+                    title: row.title,
+                    description: row.description,
+                    embedding: row.embedding,
+                    metadata: row.metadata,
+                    first_seen_at: row.first_seen_at,
+                    last_updated_at: row.last_updated_at,
+                },
+                similarity_score: row.similarity_score,
+            })
+            .collect())
+    }
+
+    /// Ottiene statistiche aggregate del database
+    ///
+    /// Fornisce una panoramica dello stato corrente del database, includendo
+    /// conteggi totali e informazioni sul last update.
+    ///
+    /// # Returns
+    ///
+    /// Una struct `DatabaseStats` con le statistiche aggregate.
+    ///
+    /// # Errors
+    ///
+    /// Returns `AppError::DatabaseError` if the database query fails.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use ceres::storage::DatasetRepository;
+    /// # use sqlx::PgPool;
+    ///
+    /// # async fn example(repo: DatasetRepository) -> Result<(), Box<dyn std::error::Error>> {
+    /// let stats = repo.get_stats().await?;
+    /// println!("Total datasets: {}", stats.total_datasets);
+    /// println!("With embeddings: {}", stats.datasets_with_embeddings);
+    /// println!("Unique portals: {}", stats.total_portals);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn get_stats(&self) -> Result<DatabaseStats, AppError> {
+        let row = sqlx::query!(
+            r#"
+            SELECT
+                COUNT(*) as "total!",
+                COUNT(embedding) as "with_embeddings!",
+                COUNT(DISTINCT source_portal) as "portals!",
+                MAX(last_updated_at) as last_update
+            FROM datasets
+            "#
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(AppError::DatabaseError)?;
+
+        Ok(DatabaseStats {
+            total_datasets: row.total,
+            datasets_with_embeddings: row.with_embeddings,
+            total_portals: row.portals,
+            last_update: row.last_update,
+        })
+    }
+}
+
+/// Helper struct per deserializzare il risultato della query di search
+///
+/// Questa struct è utilizzata internamente da sqlx per mappare il risultato
+/// della query che include il similarity_score calcolato.
+#[derive(sqlx::FromRow)]
+struct SearchResultRow {
+    id: Uuid,
+    original_id: String,
+    source_portal: String,
+    url: String,
+    title: String,
+    description: Option<String>,
+    embedding: Option<Vector>,
+    metadata: Json<serde_json::Value>,
+    first_seen_at: DateTime<Utc>,
+    last_updated_at: DateTime<Utc>,
+    similarity_score: f32,
 }
 
 #[cfg(test)]

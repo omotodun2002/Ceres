@@ -125,17 +125,37 @@ async fn main() -> anyhow::Result<()> {
         Command::Search { query, limit } => {
             info!("Searching for: '{}' (limit: {})", query, limit);
 
-            // Query conversion to embeddings
+            // Generate query embedding
             let vector = openai_client.get_embeddings(&query).await?;
+            let query_vector = Vector::from(vector);
 
-            // TODO: Search implementation in repository
-            // let results = repo.search(vector, limit).await?;
-            // println!("Found {} results.", results.len());
+            // Search in repository
+            let results = repo.search(query_vector, limit).await?;
 
-            println!(
-                "Vector generated successfully (len: {}). Search implementation pending in repository.",
-                vector.len()
-            );
+            // Output results
+            if results.is_empty() {
+                println!("No results found.");
+            } else {
+                println!("\nFound {} results:\n", results.len());
+                for (i, result) in results.iter().enumerate() {
+                    println!(
+                        "{}. [{:.2}] {} - {}",
+                        i + 1,
+                        result.similarity_score,
+                        result.dataset.title,
+                        result.dataset.source_portal
+                    );
+                    if let Some(desc) = &result.dataset.description {
+                        let truncated = if desc.len() > 100 {
+                            format!("{}...", &desc[..100])
+                        } else {
+                            desc.clone()
+                        };
+                        println!("   {}", truncated);
+                    }
+                    println!();
+                }
+            }
         }
     }
 

@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use pgvector::Vector;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sqlx::prelude::FromRow;
 use sqlx::types::Json;
 use uuid::Uuid;
@@ -129,4 +129,109 @@ pub struct NewDataset {
     pub embedding: Option<Vector>,
     /// Additional metadata as JSON
     pub metadata: serde_json::Value,
+}
+
+/// Risultato di una ricerca semantica con score di similarità
+///
+/// Questa struttura combina un dataset con il suo score di similarità rispetto
+/// alla query di ricerca. Lo score rappresenta la cosine similarity tra l'embedding
+/// del dataset e l'embedding della query, con valori tra 0.0 (nessuna similarità)
+/// e 1.0 (identici).
+///
+/// # Examples
+///
+/// ```no_run
+/// use ceres::models::SearchResult;
+/// use ceres::storage::DatasetRepository;
+/// use pgvector::Vector;
+/// # use sqlx::PgPool;
+///
+/// # async fn example(repo: DatasetRepository) -> Result<(), Box<dyn std::error::Error>> {
+/// let query_vector = Vector::from(vec![0.1; 1536]);
+/// let results = repo.search(query_vector, 10).await?;
+///
+/// for result in results {
+///     println!("[{:.2}] {}", result.similarity_score, result.dataset.title);
+/// }
+/// # Ok(())
+/// # }
+/// ```
+#[derive(Debug, Serialize, Clone)]
+pub struct SearchResult {
+    /// Il dataset trovato
+    pub dataset: Dataset,
+    /// Score di similarità (0.0-1.0), dove 1.0 è match perfetto
+    pub similarity_score: f32,
+}
+
+/// Statistiche del database per la dashboard
+///
+/// Fornisce una panoramica dello stato del database, utile per dashboard
+/// e monitoring.
+///
+/// # Examples
+///
+/// ```no_run
+/// use ceres::storage::DatasetRepository;
+/// # use sqlx::PgPool;
+///
+/// # async fn example(repo: DatasetRepository) -> Result<(), Box<dyn std::error::Error>> {
+/// let stats = repo.get_stats().await?;
+/// println!("Total datasets: {}", stats.total_datasets);
+/// println!("With embeddings: {}", stats.datasets_with_embeddings);
+/// # Ok(())
+/// # }
+/// ```
+#[derive(Debug, Serialize, Clone)]
+pub struct DatabaseStats {
+    /// Numero totale di dataset nel database
+    pub total_datasets: i64,
+    /// Numero di dataset con embeddings generati
+    pub datasets_with_embeddings: i64,
+    /// Numero di portali unici indicizzati
+    pub total_portals: i64,
+    /// Timestamp dell'ultimo update
+    pub last_update: Option<DateTime<Utc>>,
+}
+
+/// Portale configurato in portals.toml
+///
+/// Rappresenta un portale open data configurato per l'harvesting.
+/// Supporta diversi tipi di portali (CKAN, Socrata, DCAT).
+///
+/// # Examples
+///
+/// ```
+/// use ceres::models::Portal;
+///
+/// let portal = Portal {
+///     name: "Milano Open Data".to_string(),
+///     url: "https://dati.comune.milano.it".to_string(),
+///     portal_type: "ckan".to_string(),
+///     enabled: true,
+///     description: Some("Portale del Comune di Milano".to_string()),
+/// };
+///
+/// assert_eq!(portal.portal_type, "ckan");
+/// assert!(portal.enabled);
+/// ```
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Portal {
+    /// Nome del portale (human-readable)
+    pub name: String,
+    /// URL base del portale
+    pub url: String,
+    /// Tipo di portale ("ckan", "socrata", "dcat")
+    #[serde(rename = "type")]
+    pub portal_type: String,
+    /// Se il portale è abilitato per l'harvesting
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
+    /// Descrizione opzionale del portale
+    pub description: Option<String>,
+}
+
+/// Default value for Portal.enabled field
+fn default_enabled() -> bool {
+    true
 }
