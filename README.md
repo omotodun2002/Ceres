@@ -33,11 +33,11 @@ $ ceres search "air quality monitoring stations"
 
 - [x] Database schema with pgvector
 - [x] Repository pattern for datasets
-- [x] CKAN
+- [x] CKAN client
 - [x] OpenAI embeddings integration
-- [ ] CLI interface, separated from Business Logic
+- [x] CLI interface with harvest, search, export, stats commands
 - [ ] REST API
-- [ ] Harvest command implementation
+- [ ] Portals configuration from `portals.toml`
 
 ## Tech Stack
 

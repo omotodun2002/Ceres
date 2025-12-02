@@ -203,6 +203,7 @@ dependencies = [
  "dotenvy",
  "futures",
  "pgvector",
+ "serde_json",
  "sqlx",
  "tokio",
  "tracing",

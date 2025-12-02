@@ -211,6 +211,80 @@ impl DatasetRepository {
             .collect())
     }
 
+    /// Lists all datasets with optional filtering by portal.
+    ///
+    /// # Arguments
+    ///
+    /// * `portal_filter` - Optional portal URL to filter by
+    /// * `limit` - Optional maximum number of results
+    ///
+    /// # Returns
+    ///
+    /// A vector of all matching datasets.
+    ///
+    /// # Errors
+    ///
+    /// Returns `AppError::DatabaseError` if the database query fails.
+    pub async fn list_all(
+        &self,
+        portal_filter: Option<&str>,
+        limit: Option<usize>,
+    ) -> Result<Vec<Dataset>, AppError> {
+        let limit_val = limit.unwrap_or(10000) as i64;
+
+        let datasets = if let Some(portal) = portal_filter {
+            sqlx::query_as::<_, Dataset>(
+                r#"
+                SELECT
+                    id,
+                    original_id,
+                    source_portal,
+                    url,
+                    title,
+                    description,
+                    embedding,
+                    metadata,
+                    first_seen_at,
+                    last_updated_at
+                FROM datasets
+                WHERE source_portal = $1
+                ORDER BY last_updated_at DESC
+                LIMIT $2
+                "#,
+            )
+            .bind(portal)
+            .bind(limit_val)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(AppError::DatabaseError)?
+        } else {
+            sqlx::query_as::<_, Dataset>(
+                r#"
+                SELECT
+                    id,
+                    original_id,
+                    source_portal,
+                    url,
+                    title,
+                    description,
+                    embedding,
+                    metadata,
+                    first_seen_at,
+                    last_updated_at
+                FROM datasets
+                ORDER BY last_updated_at DESC
+                LIMIT $1
+                "#,
+            )
+            .bind(limit_val)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(AppError::DatabaseError)?
+        };
+
+        Ok(datasets)
+    }
+
     /// Gets aggregated database statistics
     ///
     /// Provides an overview of the current database state, including

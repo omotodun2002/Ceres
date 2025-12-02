@@ -4,4 +4,4 @@
 
 pub mod config;
 
-pub use config::{Command, Config};
+pub use config::{Command, Config, ExportFormat};

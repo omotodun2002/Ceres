@@ -21,6 +21,9 @@ ceres-db.workspace = true
 clap.workspace = true
 dotenvy.workspace = true
 
+# Serialization
+serde_json.workspace = true
+
 # Async runtime
 tokio.workspace = true
 futures.workspace = true

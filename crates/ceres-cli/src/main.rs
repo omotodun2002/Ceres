@@ -7,8 +7,9 @@ use sqlx::postgres::PgPoolOptions;
 use tracing::{Level, error, info};
 use tracing_subscriber::FmtSubscriber;
 
-use ceres_cli::{Command, Config};
+use ceres_cli::{Command, Config, ExportFormat};
 use ceres_client::{CkanClient, OpenAIClient};
+use ceres_core::Dataset;
 use ceres_db::DatasetRepository;
 
 #[tokio::main]
@@ -16,9 +17,10 @@ async fn main() -> anyhow::Result<()> {
     // Load environment variables from .env file
     dotenv().ok();
 
-    // Setup logging
+    // Setup logging (stderr to keep stdout clean for exports)
     let subscriber = FmtSubscriber::builder()
         .with_max_level(Level::INFO)
+        .with_writer(std::io::stderr)
         .finish();
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
@@ -44,6 +46,9 @@ async fn main() -> anyhow::Result<()> {
         }
         Command::Search { query, limit } => {
             search(&repo, &openai_client, &query, limit).await?;
+        }
+        Command::Export { format, portal, limit } => {
+            export(&repo, format, portal.as_deref(), limit).await?;
         }
         Command::Stats => {
             show_stats(&repo).await?;
@@ -170,30 +175,61 @@ async fn search(
 
     // Output results
     if results.is_empty() {
-        println!("No results found.");
+        println!("\n🔍 No results found for: \"{}\"\n", query);
+        println!("Try:");
+        println!("  • Using different keywords");
+        println!("  • Searching in a different language");
+        println!("  • Harvesting more portals with: ceres harvest <url>");
     } else {
-        println!("\nFound {} results:\n", results.len());
+        println!("\n🔍 Search Results for: \"{}\"\n", query);
+        println!("Found {} matching datasets:\n", results.len());
+
         for (i, result) in results.iter().enumerate() {
+            // Similarity indicator
+            let similarity_bar = create_similarity_bar(result.similarity_score);
+
             println!(
-                "{}. [{:.2}] {} - {}",
+                "{}. {} [{:.0}%] {}",
                 i + 1,
-                result.similarity_score,
-                result.dataset.title,
-                result.dataset.source_portal
+                similarity_bar,
+                result.similarity_score * 100.0,
+                result.dataset.title
             );
+            println!("   📍 {}", result.dataset.source_portal);
+            println!("   🔗 {}", result.dataset.url);
+
             if let Some(desc) = &result.dataset.description {
-                let truncated = if desc.len() > 100 {
-                    format!("{}...", &desc[..100])
-                } else {
-                    desc.clone()
-                };
-                println!("   {}", truncated);
+                let truncated = truncate_text(desc, 120);
+                println!("   📝 {}", truncated);
             }
             println!();
         }
     }
 
     Ok(())
+}
+
+/// Create a visual similarity bar
+fn create_similarity_bar(score: f32) -> String {
+    let filled = (score * 10.0).round() as usize;
+    let empty = 10 - filled;
+    format!("[{}{}]", "█".repeat(filled), "░".repeat(empty))
+}
+
+/// Truncate text to a maximum length, adding ellipsis if needed
+fn truncate_text(text: &str, max_len: usize) -> String {
+    // Clean up whitespace and newlines
+    let cleaned: String = text
+        .chars()
+        .map(|c| if c.is_whitespace() { ' ' } else { c })
+        .collect();
+    let cleaned = cleaned.split_whitespace().collect::<Vec<_>>().join(" ");
+
+    if cleaned.len() <= max_len {
+        cleaned
+    } else {
+        format!("{}...", &cleaned[..max_len])
+    }
 }
 
 /// Show database statistics
@@ -210,4 +246,108 @@ async fn show_stats(repo: &DatasetRepository) -> anyhow::Result<()> {
     println!();
 
     Ok(())
+}
+
+/// Export datasets to various formats
+async fn export(
+    repo: &DatasetRepository,
+    format: ExportFormat,
+    portal_filter: Option<&str>,
+    limit: Option<usize>,
+) -> anyhow::Result<()> {
+    info!("Exporting datasets...");
+
+    let datasets = repo.list_all(portal_filter, limit).await?;
+
+    if datasets.is_empty() {
+        eprintln!("No datasets found to export.");
+        return Ok(());
+    }
+
+    info!("Found {} datasets to export", datasets.len());
+
+    match format {
+        ExportFormat::Jsonl => {
+            export_jsonl(&datasets)?;
+        }
+        ExportFormat::Json => {
+            export_json(&datasets)?;
+        }
+        ExportFormat::Csv => {
+            export_csv(&datasets)?;
+        }
+    }
+
+    info!("Export complete: {} datasets", datasets.len());
+    Ok(())
+}
+
+/// Export datasets in JSON Lines format (one JSON object per line)
+fn export_jsonl(datasets: &[Dataset]) -> anyhow::Result<()> {
+    for dataset in datasets {
+        let export_record = create_export_record(dataset);
+        let json = serde_json::to_string(&export_record)?;
+        println!("{}", json);
+    }
+    Ok(())
+}
+
+/// Export datasets as a JSON array
+fn export_json(datasets: &[Dataset]) -> anyhow::Result<()> {
+    let export_records: Vec<_> = datasets.iter().map(create_export_record).collect();
+    let json = serde_json::to_string_pretty(&export_records)?;
+    println!("{}", json);
+    Ok(())
+}
+
+/// Export datasets in CSV format
+fn export_csv(datasets: &[Dataset]) -> anyhow::Result<()> {
+    // Print CSV header
+    println!("id,original_id,source_portal,url,title,description,first_seen_at,last_updated_at");
+
+    for dataset in datasets {
+        // Escape and quote CSV fields properly
+        let description = dataset
+            .description
+            .as_ref()
+            .map(|d| escape_csv(d))
+            .unwrap_or_default();
+
+        println!(
+            "{},{},{},{},{},{},{},{}",
+            dataset.id,
+            escape_csv(&dataset.original_id),
+            escape_csv(&dataset.source_portal),
+            escape_csv(&dataset.url),
+            escape_csv(&dataset.title),
+            description,
+            dataset.first_seen_at.format("%Y-%m-%dT%H:%M:%SZ"),
+            dataset.last_updated_at.format("%Y-%m-%dT%H:%M:%SZ"),
+        );
+    }
+    Ok(())
+}
+
+/// Create an export record without the embedding (too large for export)
+fn create_export_record(dataset: &Dataset) -> serde_json::Value {
+    serde_json::json!({
+        "id": dataset.id,
+        "original_id": dataset.original_id,
+        "source_portal": dataset.source_portal,
+        "url": dataset.url,
+        "title": dataset.title,
+        "description": dataset.description,
+        "metadata": dataset.metadata,
+        "first_seen_at": dataset.first_seen_at,
+        "last_updated_at": dataset.last_updated_at
+    })
+}
+
+/// Escape a string for CSV output
+fn escape_csv(s: &str) -> String {
+    if s.contains(',') || s.contains('"') || s.contains('\n') || s.contains('\r') {
+        format!("\"{}\"", s.replace('"', "\"\""))
+    } else {
+        s.to_string()
+    }
 }
