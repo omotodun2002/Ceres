@@ -14,8 +14,8 @@ CREATE TABLE IF NOT EXISTS datasets (
     title TEXT NOT NULL,
     description TEXT,
     
-    -- Embedding (1536 dimensions is standard for OpenAI's text-embedding-3-small)
-    embedding vector(1536),
+    -- Embedding (768 dimensions for Gemini text-embedding-004)
+    embedding vector(768),
     
     -- Technical metadata (JSONB format for future flexibility)
     metadata JSONB DEFAULT '{}'::jsonb,

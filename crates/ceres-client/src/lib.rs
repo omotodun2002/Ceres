@@ -3,7 +3,7 @@
 //! This crate provides HTTP clients for interacting with:
 //!
 //! - [`ckan`] - CKAN open data portals
-//! - [`openai`] - OpenAI embeddings API
+//! - [`gemini`] - Google Gemini embeddings API
 //!
 //! # Overview
 //!
@@ -11,8 +11,8 @@
 //! and error handling for their respective APIs.
 
 pub mod ckan;
-pub mod openai;
+pub mod gemini;
 
 // Re-export main client types
 pub use ckan::CkanClient;
-pub use openai::OpenAIClient;
+pub use gemini::GeminiClient;

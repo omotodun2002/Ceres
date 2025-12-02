@@ -8,7 +8,7 @@ use tracing::{error, info, Level};
 use tracing_subscriber::FmtSubscriber;
 
 use ceres_cli::{Command, Config, ExportFormat};
-use ceres_client::{CkanClient, OpenAIClient};
+use ceres_client::{CkanClient, GeminiClient};
 use ceres_core::Dataset;
 use ceres_db::DatasetRepository;
 
@@ -37,15 +37,15 @@ async fn main() -> anyhow::Result<()> {
 
     // Initialize services
     let repo = DatasetRepository::new(pool);
-    let openai_client = OpenAIClient::new(&config.openai_api_key);
+    let gemini_client = GeminiClient::new(&config.gemini_api_key);
 
     // Execute command
     match config.command {
         Command::Harvest { portal_url } => {
-            harvest(&repo, &openai_client, &portal_url).await?;
+            harvest(&repo, &gemini_client, &portal_url).await?;
         }
         Command::Search { query, limit } => {
-            search(&repo, &openai_client, &query, limit).await?;
+            search(&repo, &gemini_client, &query, limit).await?;
         }
         Command::Export {
             format,
@@ -65,7 +65,7 @@ async fn main() -> anyhow::Result<()> {
 /// Harvest datasets from a CKAN portal
 async fn harvest(
     repo: &DatasetRepository,
-    openai_client: &OpenAIClient,
+    gemini_client: &GeminiClient,
     portal_url: &str,
 ) -> anyhow::Result<()> {
     info!("Starting harvest for: {}", portal_url);
@@ -86,7 +86,7 @@ async fn harvest(
     let results: Vec<_> = stream::iter(ids.into_iter().enumerate())
         .map(|(i, id)| {
             let ckan = ckan.clone();
-            let openai = openai_client.clone();
+            let gemini = gemini_client.clone();
             let repo = repo.clone();
             let portal_url = portal_url.to_string();
 
@@ -111,7 +111,7 @@ async fn harvest(
                 );
 
                 if !combined_text.trim().is_empty() {
-                    match openai.get_embeddings(&combined_text).await {
+                    match gemini.get_embeddings(&combined_text).await {
                         Ok(emb) => {
                             new_dataset.embedding = Some(Vector::from(emb));
                         }
@@ -164,14 +164,14 @@ async fn harvest(
 /// Search for datasets using semantic similarity
 async fn search(
     repo: &DatasetRepository,
-    openai_client: &OpenAIClient,
+    gemini_client: &GeminiClient,
     query: &str,
     limit: usize,
 ) -> anyhow::Result<()> {
     info!("Searching for: '{}' (limit: {})", query, limit);
 
     // Generate query embedding
-    let vector = openai_client.get_embeddings(query).await?;
+    let vector = gemini_client.get_embeddings(query).await?;
     let query_vector = Vector::from(vector);
 
     // Search in repository

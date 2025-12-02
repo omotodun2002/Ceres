@@ -18,9 +18,9 @@ pub struct Config {
     #[arg(long, env = "DATABASE_URL")]
     pub database_url: String,
 
-    /// OpenAI API key for generating embeddings
-    #[arg(long, env = "OPENAI_API_KEY")]
-    pub openai_api_key: String,
+    /// Google Gemini API key for generating embeddings
+    #[arg(long, env = "GEMINI_API_KEY")]
+    pub gemini_api_key: String,
 
     #[command(subcommand)]
     pub command: Command,

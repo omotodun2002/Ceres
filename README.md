@@ -49,7 +49,7 @@ Found 3 matching datasets:
 ## Features
 
 - **CKAN Harvester** — Fetch datasets from any CKAN-compatible portal
-- **Semantic Search** — Find datasets by meaning using OpenAI embeddings
+- **Semantic Search** — Find datasets by meaning using Gemini embeddings
 - **Multi-format Export** — Export to JSON, JSON Lines, or CSV
 - **Database Statistics** — Monitor indexed datasets and portals
 
@@ -59,7 +59,7 @@ Found 3 matching datasets:
 |-----------|------------|
 | Language | Rust (async with Tokio) |
 | Database | PostgreSQL 16+ with pgvector |
-| Embeddings | OpenAI text-embedding-3-small |
+| Embeddings | Google Gemini text-embedding-004 |
 | Portal Protocol | CKAN API v3 |
 
 ## Quick Start
@@ -68,7 +68,7 @@ Found 3 matching datasets:
 
 - Rust 1.85+
 - Docker & Docker Compose
-- OpenAI API key
+- Google Gemini API key ([get one free](https://aistudio.google.com/apikey))
 
 ### Setup
 
@@ -86,7 +86,7 @@ psql postgresql://ceres_user:password@localhost:5432/ceres_db \
 
 # Configure environment
 cp .env.example .env
-# Edit .env with your OpenAI API key
+# Edit .env with your Gemini API key
 
 # Build
 cargo build --release
@@ -142,7 +142,7 @@ Commands:
 
 Environment Variables:
   DATABASE_URL     PostgreSQL connection string
-  OPENAI_API_KEY   OpenAI API key for embeddings
+  GEMINI_API_KEY   Google Gemini API key for embeddings
 ```
 
 ## Architecture
@@ -153,7 +153,7 @@ Environment Variables:
 
 ### v0.0.1 — Initial Release ✅
 - CKAN harvester
-- OpenAI embeddings (text-embedding-3-small)
+- Gemini embeddings (text-embedding-004)
 - CLI with harvest, search, export, stats commands
 - PostgreSQL + pgvector backend
 
@@ -173,7 +173,7 @@ Environment Variables:
 - data.europa.eu integration
 
 ### Future
-- Local embedding models (no OpenAI dependency)
+- Switchable embedding providers
 - Schema-level search
 - Data quality scoring
 
@@ -208,5 +208,5 @@ limitations under the License.
 ## Acknowledgments
 
 - [pgvector](https://github.com/pgvector/pgvector) — vector similarity for Postgres
-- [async-openai](https://github.com/64bit/async-openai) — OpenAI Rust client
+- [Google Gemini](https://ai.google.dev/) — embeddings API
 - [CKAN](https://ckan.org/) — the open source data portal platform

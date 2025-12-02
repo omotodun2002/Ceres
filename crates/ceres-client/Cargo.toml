@@ -5,7 +5,7 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "HTTP clients for CKAN portals and OpenAI API"
+description = "HTTP clients for CKAN portals and Gemini embeddings API"
 
 [dependencies]
 # Internal
@@ -13,9 +13,6 @@ ceres-core.workspace = true
 
 # HTTP client
 reqwest.workspace = true
-
-# OpenAI
-async-openai.workspace = true
 
 # Serialization
 serde.workspace = true
