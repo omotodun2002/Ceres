@@ -1,4 +1,4 @@
-use ceres_core::error::AppError;
+use ceres_core::error::{AppError, GeminiErrorDetails, GeminiErrorKind};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
@@ -68,6 +68,34 @@ struct GeminiErrorDetail {
     status: Option<String>,
 }
 
+/// Classify Gemini API error based on status code and message
+fn classify_gemini_error(status_code: u16, message: &str) -> GeminiErrorKind {
+    match status_code {
+        401 => GeminiErrorKind::Authentication,
+        429 => {
+            // Check if it's quota exceeded or rate limit
+            if message.contains("insufficient_quota") || message.contains("quota") {
+                GeminiErrorKind::QuotaExceeded
+            } else {
+                GeminiErrorKind::RateLimit
+            }
+        }
+        500..=599 => GeminiErrorKind::ServerError,
+        _ => {
+            // Check message content for specific error types
+            if message.contains("API key") || message.contains("Unauthorized") {
+                GeminiErrorKind::Authentication
+            } else if message.contains("rate") {
+                GeminiErrorKind::RateLimit
+            } else if message.contains("quota") {
+                GeminiErrorKind::QuotaExceeded
+            } else {
+                GeminiErrorKind::Unknown
+            }
+        }
+    }
+}
+
 impl GeminiClient {
     /// Creates a new Gemini client with the specified API key.
     ///
@@ -135,7 +163,11 @@ impl GeminiClient {
                 if e.is_timeout() {
                     AppError::Timeout(30)
                 } else if e.is_connect() {
-                    AppError::NetworkError(format!("Connection failed: {}", e))
+                    AppError::GeminiError(GeminiErrorDetails::new(
+                        GeminiErrorKind::NetworkError,
+                        format!("Connection failed: {}", e),
+                        0, // No HTTP status for connection failures
+                    ))
                 } else {
                     AppError::ClientError(e.to_string())
                 }
@@ -144,25 +176,25 @@ impl GeminiClient {
         let status = response.status();
 
         if !status.is_success() {
+            let status_code = status.as_u16();
             let error_text = response.text().await.unwrap_or_default();
 
-            // Try to parse as Gemini error
-            if let Ok(gemini_error) = serde_json::from_str::<GeminiError>(&error_text) {
-                let msg = gemini_error.error.message;
-                if status.as_u16() == 401 || msg.contains("API key") {
-                    // TODO: Implement proper handling for Gemini instead of old OpenAiError
-                    return Err(AppError::GeminiError(
-                        "401 Unauthorized - Invalid API key".to_string(),
-                    ));
-                } else if status.as_u16() == 429 {
-                    return Err(AppError::RateLimitExceeded);
-                }
-                return Err(AppError::Generic(format!("Gemini API error: {}", msg)));
-            }
+            // Try to parse as structured Gemini error
+            let message = if let Ok(gemini_error) = serde_json::from_str::<GeminiError>(&error_text)
+            {
+                gemini_error.error.message
+            } else {
+                format!("HTTP {}: {}", status_code, error_text)
+            };
 
-            return Err(AppError::Generic(format!(
-                "Gemini API error: HTTP {}",
-                status
+            // Classify the error
+            let kind = classify_gemini_error(status_code, &message);
+
+            // Return structured error
+            return Err(AppError::GeminiError(GeminiErrorDetails::new(
+                kind,
+                message,
+                status_code,
             )));
         }
 
@@ -206,5 +238,47 @@ mod tests {
         let json = serde_json::to_string(&request).unwrap();
         assert!(json.contains("text-embedding-004"));
         assert!(json.contains("Hello world"));
+    }
+
+    #[test]
+    fn test_classify_gemini_error_auth() {
+        let kind = classify_gemini_error(401, "Invalid API key");
+        assert_eq!(kind, GeminiErrorKind::Authentication);
+    }
+
+    #[test]
+    fn test_classify_gemini_error_auth_from_message() {
+        let kind = classify_gemini_error(400, "API key not valid");
+        assert_eq!(kind, GeminiErrorKind::Authentication);
+    }
+
+    #[test]
+    fn test_classify_gemini_error_rate_limit() {
+        let kind = classify_gemini_error(429, "Rate limit exceeded");
+        assert_eq!(kind, GeminiErrorKind::RateLimit);
+    }
+
+    #[test]
+    fn test_classify_gemini_error_quota() {
+        let kind = classify_gemini_error(429, "insufficient_quota");
+        assert_eq!(kind, GeminiErrorKind::QuotaExceeded);
+    }
+
+    #[test]
+    fn test_classify_gemini_error_server() {
+        let kind = classify_gemini_error(500, "Internal server error");
+        assert_eq!(kind, GeminiErrorKind::ServerError);
+    }
+
+    #[test]
+    fn test_classify_gemini_error_server_503() {
+        let kind = classify_gemini_error(503, "Service unavailable");
+        assert_eq!(kind, GeminiErrorKind::ServerError);
+    }
+
+    #[test]
+    fn test_classify_gemini_error_unknown() {
+        let kind = classify_gemini_error(400, "Bad request");
+        assert_eq!(kind, GeminiErrorKind::Unknown);
     }
 }

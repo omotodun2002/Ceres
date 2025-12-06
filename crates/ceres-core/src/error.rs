@@ -24,6 +24,58 @@ use thiserror::Error;
 ///     Err(AppError::Generic("Something went wrong".to_string()))
 /// }
 /// ```
+///
+/// # Gemini Error Classification
+///
+/// Gemini API errors are classified into specific categories for better error handling.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GeminiErrorKind {
+    /// Authentication failure (401, invalid API key)
+    Authentication,
+    /// Rate limit exceeded (429)
+    RateLimit,
+    /// Quota exceeded (insufficient_quota)
+    QuotaExceeded,
+    /// Server error (5xx)
+    ServerError,
+    /// Network/connection error
+    NetworkError,
+    /// Unknown or unclassified error
+    Unknown,
+}
+
+/// Structured error details from Gemini API
+#[derive(Debug, Clone)]
+pub struct GeminiErrorDetails {
+    /// The specific error category
+    pub kind: GeminiErrorKind,
+    /// Human-readable error message from the API
+    pub message: String,
+    /// HTTP status code
+    pub status_code: u16,
+}
+
+impl GeminiErrorDetails {
+    /// Create a new GeminiErrorDetails
+    pub fn new(kind: GeminiErrorKind, message: String, status_code: u16) -> Self {
+        Self {
+            kind,
+            message,
+            status_code,
+        }
+    }
+}
+
+impl std::fmt::Display for GeminiErrorDetails {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Gemini API error (HTTP {}): {}",
+            self.status_code, self.message
+        )
+    }
+}
+
 #[derive(Error, Debug)]
 pub enum AppError {
     /// Database operation failed.
@@ -44,14 +96,9 @@ pub enum AppError {
     ///
     /// This error occurs when Gemini API calls fail, including
     /// authentication failures, rate limiting, and API errors.
-    ///
-    /// TODO: Replace String with a structured GeminiError type containing:
-    /// - error_code: enum for specific error types (Auth, RateLimit, Quota, etc.)
-    /// - message: human-readable error description
-    /// - status_code: HTTP status code
-    /// This will enable better pattern matching and avoid string parsing in user_message()
+    /// Contains structured error information for better error handling.
     #[error("Gemini error: {0}")]
-    GeminiError(String),
+    GeminiError(GeminiErrorDetails),
 
     /// JSON serialization or deserialization failed.
     ///
@@ -134,21 +181,34 @@ impl AppError {
                     format!("API error: {}", msg)
                 }
             }
-            AppError::GeminiError(msg) => {
-                if msg.contains("401")
-                    || msg.contains("Unauthorized")
-                    || msg.contains("invalid_api_key")
-                {
+            AppError::GeminiError(details) => match details.kind {
+                GeminiErrorKind::Authentication => {
                     "Invalid Gemini API key.\n   Check your GEMINI_API_KEY environment variable."
                         .to_string()
-                } else if msg.contains("429") || msg.contains("rate") {
-                    "Gemini rate limit reached.\n   Wait a moment and try again, or reduce concurrency.".to_string()
-                } else if msg.contains("insufficient_quota") {
-                    "Gemini quota exceeded.\n   Check your Google account billing.".to_string()
-                } else {
-                    format!("Gemini error: {}", msg)
                 }
-            }
+                GeminiErrorKind::RateLimit => {
+                    "Gemini rate limit reached.\n   Wait a moment and try again, or reduce concurrency."
+                        .to_string()
+                }
+                GeminiErrorKind::QuotaExceeded => {
+                    "Gemini quota exceeded.\n   Check your Google account billing.".to_string()
+                }
+                GeminiErrorKind::ServerError => {
+                    format!(
+                        "Gemini server error (HTTP {}).\n   Please try again later.",
+                        details.status_code
+                    )
+                }
+                GeminiErrorKind::NetworkError => {
+                    format!(
+                        "Network error connecting to Gemini: {}\n   Check your internet connection.",
+                        details.message
+                    )
+                }
+                GeminiErrorKind::Unknown => {
+                    format!("Gemini error: {}", details.message)
+                }
+            },
             AppError::InvalidPortalUrl(url) => {
                 format!(
                     "Invalid portal URL: {}\n   Example: https://dati.comune.milano.it",
@@ -191,13 +251,19 @@ impl AppError {
     /// assert!(!err.is_retryable());
     /// ```
     pub fn is_retryable(&self) -> bool {
-        matches!(
-            self,
+        match self {
             AppError::NetworkError(_)
-                | AppError::Timeout(_)
-                | AppError::RateLimitExceeded
-                | AppError::ClientError(_)
-        )
+            | AppError::Timeout(_)
+            | AppError::RateLimitExceeded
+            | AppError::ClientError(_) => true,
+            AppError::GeminiError(details) => matches!(
+                details.kind,
+                GeminiErrorKind::RateLimit
+                    | GeminiErrorKind::NetworkError
+                    | GeminiErrorKind::ServerError
+            ),
+            _ => false,
+        }
     }
 }
 
@@ -225,16 +291,76 @@ mod tests {
 
     #[test]
     fn test_user_message_gemini_auth() {
-        let err = AppError::GeminiError("401 Unauthorized".to_string());
+        let details = GeminiErrorDetails::new(
+            GeminiErrorKind::Authentication,
+            "Invalid API key".to_string(),
+            401,
+        );
+        let err = AppError::GeminiError(details);
         let msg = err.user_message();
         assert!(msg.contains("Invalid Gemini API key"));
+        assert!(msg.contains("GEMINI_API_KEY"));
     }
 
     #[test]
-    fn test_user_message_rate_limit() {
-        let err = AppError::GeminiError("429 rate limit".to_string());
+    fn test_user_message_gemini_rate_limit() {
+        let details = GeminiErrorDetails::new(
+            GeminiErrorKind::RateLimit,
+            "Rate limit exceeded".to_string(),
+            429,
+        );
+        let err = AppError::GeminiError(details);
         let msg = err.user_message();
         assert!(msg.contains("rate limit"));
+    }
+
+    #[test]
+    fn test_user_message_gemini_quota() {
+        let details = GeminiErrorDetails::new(
+            GeminiErrorKind::QuotaExceeded,
+            "Insufficient quota".to_string(),
+            429,
+        );
+        let err = AppError::GeminiError(details);
+        let msg = err.user_message();
+        assert!(msg.contains("quota exceeded"));
+        assert!(msg.contains("Google account billing"));
+    }
+
+    #[test]
+    fn test_gemini_error_display() {
+        let details = GeminiErrorDetails::new(
+            GeminiErrorKind::Authentication,
+            "Invalid API key".to_string(),
+            401,
+        );
+        let err = AppError::GeminiError(details);
+        assert!(err.to_string().contains("Gemini error"));
+        assert!(err.to_string().contains("401"));
+    }
+
+    #[test]
+    fn test_gemini_error_retryable() {
+        let rate_limit = AppError::GeminiError(GeminiErrorDetails::new(
+            GeminiErrorKind::RateLimit,
+            "Rate limit".to_string(),
+            429,
+        ));
+        assert!(rate_limit.is_retryable());
+
+        let auth_error = AppError::GeminiError(GeminiErrorDetails::new(
+            GeminiErrorKind::Authentication,
+            "Invalid key".to_string(),
+            401,
+        ));
+        assert!(!auth_error.is_retryable());
+
+        let server_error = AppError::GeminiError(GeminiErrorDetails::new(
+            GeminiErrorKind::ServerError,
+            "Internal server error".to_string(),
+            500,
+        ));
+        assert!(server_error.is_retryable());
     }
 
     #[test]
