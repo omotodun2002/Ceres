@@ -42,9 +42,15 @@ pub enum AppError {
 
     /// Gemini API call failed.
     ///
-    /// This error occurs when OpenAI API calls fail, including
+    /// This error occurs when Gemini API calls fail, including
     /// authentication failures, rate limiting, and API errors.
-    #[error("Gemini error: {0}")] // TODO improve this
+    ///
+    /// TODO: Replace String with a structured GeminiError type containing:
+    /// - error_code: enum for specific error types (Auth, RateLimit, Quota, etc.)
+    /// - message: human-readable error description
+    /// - status_code: HTTP status code
+    /// This will enable better pattern matching and avoid string parsing in user_message()
+    #[error("Gemini error: {0}")]
     GeminiError(String),
 
     /// JSON serialization or deserialization failed.
