@@ -95,7 +95,7 @@ impl CkanClient {
     ///
     /// # Arguments
     ///
-    /// * `base_url_str` - The base URL of the CKAN portal (e.g., "https://dati.gov.it")
+    /// * `base_url_str` - The base URL of the CKAN portal (e.g., <https://dati.gov.it>)
     ///
     /// # Returns
     ///

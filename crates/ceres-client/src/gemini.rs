@@ -9,6 +9,11 @@ use std::time::Duration;
 /// text-embedding-004 model. Embeddings are vector representations of text
 /// that can be used for semantic search, clustering, and similarity comparisons.
 ///
+/// # Security
+///
+/// The API key is securely transmitted via the `x-goog-api-key` HTTP header,
+/// not in the URL, to prevent accidental exposure in logs and proxies.
+///
 /// # Examples
 ///
 /// ```no_run
