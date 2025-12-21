@@ -103,54 +103,54 @@ pub struct NewDataset {
     pub metadata: serde_json::Value,
 }
 
-/// Risultato di una ricerca semantica con score di similarità
+/// Result of a semantic search with similarity score.
 ///
-/// Questa struttura combina un dataset con il suo score di similarità rispetto
-/// alla query di ricerca. Lo score rappresenta la cosine similarity tra l'embedding
-/// del dataset e l'embedding della query, con valori tra 0.0 (nessuna similarità)
-/// e 1.0 (identici).
+/// This structure combines a dataset with its similarity score relative to
+/// the search query. The score represents the cosine similarity between the
+/// dataset embedding and the query embedding, with values between 0.0 (no similarity)
+/// and 1.0 (identical).
 ///
 /// # Examples
 ///
 /// ```
 /// use ceres_core::SearchResult;
 ///
-/// // SearchResult viene creato dal repository durante le ricerche
-/// // Il similarity_score indica quanto il dataset è rilevante per la query
-/// // Valori tipici:
-/// // - 0.9+ : Match molto rilevante
-/// // - 0.7-0.9 : Match buono
-/// // - 0.5-0.7 : Match parziale
-/// // - <0.5 : Match debole
+/// // SearchResult is created by the repository during searches
+/// // The similarity_score indicates how relevant the dataset is to the query
+/// // Typical values:
+/// // - 0.9+ : Highly relevant match
+/// // - 0.7-0.9 : Good match
+/// // - 0.5-0.7 : Partial match
+/// // - <0.5 : Weak match
 /// ```
 #[derive(Debug, Serialize, Clone)]
 pub struct SearchResult {
-    /// Il dataset trovato
+    /// The matched dataset
     pub dataset: Dataset,
-    /// Score di similarità (0.0-1.0), dove 1.0 è match perfetto
+    /// Similarity score (0.0-1.0), where 1.0 is a perfect match
     pub similarity_score: f32,
 }
 
-/// Statistiche del database per la dashboard
+/// Database statistics for dashboard and monitoring.
 ///
-/// Fornisce una panoramica dello stato del database, utile per dashboard
-/// e monitoring.
+/// Provides an overview of the database state, useful for dashboards
+/// and monitoring systems.
 #[derive(Debug, Serialize, Clone)]
 pub struct DatabaseStats {
-    /// Numero totale di dataset nel database
+    /// Total number of datasets in the database
     pub total_datasets: i64,
-    /// Numero di dataset con embeddings generati
+    /// Number of datasets with generated embeddings
     pub datasets_with_embeddings: i64,
-    /// Numero di portali unici indicizzati
+    /// Number of unique indexed portals
     pub total_portals: i64,
-    /// Timestamp dell'ultimo update
+    /// Timestamp of the last update
     pub last_update: Option<DateTime<Utc>>,
 }
 
-/// Portale configurato in portals.toml
+/// Portal configured in portals.toml.
 ///
-/// Rappresenta un portale open data configurato per l'harvesting.
-/// Supporta diversi tipi di portali (CKAN, Socrata, DCAT).
+/// Represents an open data portal configured for harvesting.
+/// Supports different portal types (CKAN, Socrata, DCAT).
 ///
 /// # Examples
 ///
@@ -171,17 +171,17 @@ pub struct DatabaseStats {
 /// ```
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Portal {
-    /// Nome del portale (human-readable)
+    /// Portal name (human-readable)
     pub name: String,
-    /// URL base del portale
+    /// Base URL of the portal
     pub url: String,
-    /// Tipo di portale ("ckan", "socrata", "dcat")
+    /// Portal type ("ckan", "socrata", "dcat")
     #[serde(rename = "type")]
     pub portal_type: String,
-    /// Se il portale è abilitato per l'harvesting
+    /// Whether the portal is enabled for harvesting
     #[serde(default = "default_enabled")]
     pub enabled: bool,
-    /// Descrizione opzionale del portale
+    /// Optional portal description
     pub description: Option<String>,
 }
 
