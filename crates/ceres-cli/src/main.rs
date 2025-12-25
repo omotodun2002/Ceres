@@ -51,6 +51,10 @@ impl AtomicSyncStats {
     }
 }
 
+// TODO(#4): Add `harvest-all` command that reads portal URLs from portals.toml
+// This would enable multi-portal harvesting with a single command.
+// See: https://github.com/AndreaBozzo/Ceres/issues/4
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     dotenv().ok();
@@ -97,6 +101,11 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
+// TODO(#10): Implement time-based incremental harvesting
+// Currently we fetch all package IDs and compare hashes. For large portals,
+// we could use CKAN's `package_search` with `fq=metadata_modified:[NOW-1DAY TO *]`
+// to only fetch recently modified datasets.
+// See: https://github.com/AndreaBozzo/Ceres/issues/10
 async fn sync_portal(
     repo: &DatasetRepository,
     gemini_client: &GeminiClient,
@@ -114,6 +123,16 @@ async fn sync_portal(
     info!("Found {} datasets on portal", total);
 
     let stats = Arc::new(AtomicSyncStats::new());
+
+    // TODO(robustness): Add circuit breaker pattern for API failures
+    // Currently no backpressure when Gemini/CKAN APIs fail repeatedly.
+    // Consider: (1) Stop after N consecutive failures
+    // (2) Exponential backoff on rate limits
+    // (3) Health check before continuing after failure spike
+
+    // TODO(performance): Batch embedding API calls
+    // Each dataset embedding is generated individually. Gemini API may support
+    // batching multiple texts per request, reducing latency and API calls.
 
     let _results: Vec<_> = stream::iter(ids.into_iter().enumerate())
         .map(|(i, id)| {
@@ -297,12 +316,19 @@ async fn search(
     Ok(())
 }
 
+// TODO(ui): Improve similarity bar for edge cases
+// Currently (0.05 * 10).round() = 1, showing 1 bar for 5% similarity.
+// Consider using floor() or a minimum threshold for more intuitive display.
 fn create_similarity_bar(score: f32) -> String {
     let filled = (score * 10.0).round() as usize;
     let empty = 10 - filled;
     format!("[{}{}]", "█".repeat(filled), "░".repeat(empty))
 }
 
+// FIXME(unicode): Byte slicing can panic on multi-byte UTF-8 characters
+// `&cleaned[..max_len]` assumes ASCII. For text with emojis or non-Latin
+// characters, this will panic. Use `.chars().take(max_len)` instead.
+// See: https://doc.rust-lang.org/book/ch08-02-strings.html#bytes-and-scalar-values-and-grapheme-clusters
 fn truncate_text(text: &str, max_len: usize) -> String {
     let cleaned: String = text
         .chars()
@@ -313,6 +339,7 @@ fn truncate_text(text: &str, max_len: usize) -> String {
     if cleaned.len() <= max_len {
         cleaned
     } else {
+        // FIXME: Use cleaned.chars().take(max_len).collect::<String>()
         format!("{}...", &cleaned[..max_len])
     }
 }
@@ -335,6 +362,10 @@ async fn show_stats(repo: &DatasetRepository) -> anyhow::Result<()> {
     Ok(())
 }
 
+// TODO(performance): Implement streaming export for large datasets
+// Currently loads all datasets into memory before writing.
+// For databases with millions of records, this causes OOM.
+// Consider: (1) Cursor-based pagination, (2) Streaming writes as records arrive
 async fn export(
     repo: &DatasetRepository,
     format: ExportFormat,
@@ -343,6 +374,7 @@ async fn export(
 ) -> anyhow::Result<()> {
     info!("Exporting datasets...");
 
+    // TODO(performance): Stream results instead of loading all into Vec
     let datasets = repo.list_all(portal_filter, limit).await?;
 
     if datasets.is_empty() {

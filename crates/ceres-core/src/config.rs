@@ -1,12 +1,30 @@
+//! Configuration types for Ceres components.
+//!
+//! # Configuration Improvements
+//!
+//! TODO(config): Make all configuration values environment-configurable
+//! Currently all defaults are hardcoded. Should support:
+//! - `DB_MAX_CONNECTIONS` for database pool size
+//! - `SYNC_CONCURRENCY` for parallel dataset processing
+//! - `HTTP_TIMEOUT` for API request timeout
+//! - `HTTP_MAX_RETRIES` for retry attempts
+//!
+//! Consider using the `config` crate for layered configuration:
+//! defaults -> config file -> environment variables -> CLI args
+
 use std::time::Duration;
 
 /// Database connection pool configuration.
+///
+/// TODO(config): Support environment variable `DB_MAX_CONNECTIONS`
+/// Default of 5 may be insufficient for high-concurrency scenarios.
 pub struct DbConfig {
     pub max_connections: u32,
 }
 
 impl Default for DbConfig {
     fn default() -> Self {
+        // TODO(config): Read from DB_MAX_CONNECTIONS env var
         Self { max_connections: 5 }
     }
 }
@@ -29,12 +47,17 @@ impl Default for HttpConfig {
 }
 
 /// Portal synchronization configuration.
+///
+/// TODO(config): Support CLI arg `--concurrency` and env var `SYNC_CONCURRENCY`
+/// Optimal value depends on portal rate limits and system resources.
+/// Consider auto-tuning based on API response times.
 pub struct SyncConfig {
     pub concurrency: usize,
 }
 
 impl Default for SyncConfig {
     fn default() -> Self {
+        // TODO(config): Read from SYNC_CONCURRENCY env var
         Self { concurrency: 10 }
     }
 }

@@ -1,3 +1,19 @@
+//! Dataset repository for PostgreSQL with pgvector support.
+//!
+//! # Testing
+//!
+//! TODO(#12): Improve test coverage for repository methods
+//! Current tests only cover struct/serialization. Integration tests needed for:
+//! - `upsert()` - insert and update paths
+//! - `search()` - vector similarity queries
+//! - `get_hashes_for_portal()` - delta detection queries
+//! - `update_timestamp_only()` - timestamp-only updates
+//!
+//! Consider using testcontainers-rs for isolated PostgreSQL instances:
+//! <https://github.com/testcontainers/testcontainers-rs>
+//!
+//! See: <https://github.com/AndreaBozzo/Ceres/issues/12>
+
 use ceres_core::error::AppError;
 use ceres_core::models::{DatabaseStats, Dataset, NewDataset, SearchResult};
 use chrono::{DateTime, Utc};
@@ -40,6 +56,11 @@ impl DatasetRepository {
     }
 
     /// Inserts or updates a dataset. Returns the UUID of the affected row.
+    ///
+    /// TODO(robustness): Return UpsertOutcome to distinguish insert vs update
+    /// Currently returns only UUID without indicating operation type.
+    /// Consider: `pub enum UpsertOutcome { Created(Uuid), Updated(Uuid) }`
+    /// This enables accurate progress reporting in sync statistics.
     pub async fn upsert(&self, new_data: &NewDataset) -> Result<Uuid, AppError> {
         let embedding_vector = new_data.embedding.as_ref().cloned();
 
@@ -85,6 +106,12 @@ impl DatasetRepository {
     }
 
     /// Returns a map of original_id → content_hash for all datasets from a portal.
+    ///
+    /// TODO(performance): Optimize for large portals (100k+ datasets)
+    /// Currently loads entire HashMap into memory. Consider:
+    /// (1) Streaming hash comparison during sync, or
+    /// (2) Database-side hash check with WHERE clause, or
+    /// (3) Bloom filter for approximate membership testing
     pub async fn get_hashes_for_portal(
         &self,
         portal_url: &str,
@@ -182,11 +209,19 @@ impl DatasetRepository {
     }
 
     /// Lists datasets with optional portal filter and limit.
+    ///
+    /// TODO(config): Make default limit configurable via DEFAULT_EXPORT_LIMIT env var
+    /// Currently hardcoded to 10000. For large exports, consider streaming instead.
+    ///
+    /// TODO(performance): Implement streaming/pagination for memory efficiency
+    /// Loading all datasets into memory doesn't scale. Consider returning
+    /// `impl Stream<Item = Result<Dataset, AppError>>` or cursor-based pagination.
     pub async fn list_all(
         &self,
         portal_filter: Option<&str>,
         limit: Option<usize>,
     ) -> Result<Vec<Dataset>, AppError> {
+        // TODO(config): Read default from DEFAULT_EXPORT_LIMIT env var
         let limit_val = limit.unwrap_or(10000) as i64;
 
         let datasets = if let Some(portal) = portal_filter {

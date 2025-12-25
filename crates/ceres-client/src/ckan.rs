@@ -1,3 +1,19 @@
+//! CKAN client for harvesting datasets from CKAN-compatible open data portals.
+//!
+//! # Future Extensions
+//!
+//! TODO: Add support for other portal types (roadmap v0.2):
+//! - Socrata API (used by many US cities): <https://dev.socrata.com/>
+//! - DCAT-AP harvester for EU portals: <https://joinup.ec.europa.eu/collection/semantic-interoperability-community-semic/solution/dcat-application-profile-data-portals-europe>
+//!
+//! Consider creating a `PortalClient` trait that abstracts over different portal types:
+//! ```ignore
+//! pub trait PortalClient {
+//!     async fn list_dataset_ids(&self) -> Result<Vec<String>, AppError>;
+//!     async fn get_dataset(&self, id: &str) -> Result<NewDataset, AppError>;
+//! }
+//! ```
+
 use ceres_core::error::AppError;
 use ceres_core::models::NewDataset;
 use ceres_core::HttpConfig;
@@ -99,12 +115,16 @@ impl CkanClient {
     ///
     /// Returns `AppError::Generic` if the URL is invalid or malformed.
     /// Returns `AppError::ClientError` if the HTTP client cannot be built.
+    // TODO(validation): Add optional portal validation on construction
+    // Could probe /api/3/action/site_read to verify it's a valid CKAN portal.
+    // Add: pub async fn new_validated(url: &str) -> Result<Self, AppError>
     pub fn new(base_url_str: &str) -> Result<Self, AppError> {
         let base_url = Url::parse(base_url_str)
             .map_err(|_| AppError::Generic(format!("Invalid CKAN URL: {}", base_url_str)))?;
 
         let http_config = HttpConfig::default();
         let client = Client::builder()
+            // TODO(config): Make User-Agent configurable or use version from Cargo.toml
             .user_agent("Ceres/0.1 (semantic-search-bot)")
             .timeout(http_config.timeout)
             .build()
@@ -126,6 +146,13 @@ impl CkanClient {
     ///
     /// Returns `AppError::ClientError` if the HTTP request fails.
     /// Returns `AppError::Generic` if the CKAN API returns an error.
+    ///
+    /// # Performance Note
+    ///
+    /// TODO(performance): Add pagination for large portals
+    /// Large portals can have 100k+ datasets. CKAN supports limit/offset params.
+    /// Consider: `list_package_ids_paginated(limit: usize, offset: usize)`
+    /// Or streaming: `list_package_ids_stream() -> impl Stream<Item = ...>`
     pub async fn list_package_ids(&self) -> Result<Vec<String>, AppError> {
         let url = self
             .base_url
@@ -185,6 +212,9 @@ impl CkanClient {
         Ok(ckan_resp.result)
     }
 
+    // TODO(observability): Add detailed retry logging
+    // Should log: (1) Attempt number and delay, (2) Reason for retry,
+    // (3) Final error if all retries exhausted. Use tracing crate.
     async fn request_with_retry(&self, url: &Url) -> Result<reqwest::Response, AppError> {
         let http_config = HttpConfig::default();
         let max_retries = http_config.max_retries;

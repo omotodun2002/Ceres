@@ -1,3 +1,23 @@
+//! Google Gemini embeddings client.
+//!
+//! # Future Extensions
+//!
+//! TODO: Implement switchable embedding providers (roadmap v0.3+)
+//! Consider creating an `EmbeddingProvider` trait:
+//! ```ignore
+//! #[async_trait]
+//! pub trait EmbeddingProvider: Send + Sync {
+//!     fn dimension(&self) -> usize;
+//!     async fn embed(&self, text: &str) -> Result<Vec<f32>, AppError>;
+//! }
+//! ```
+//!
+//! Potential providers to support:
+//! - OpenAI text-embedding-3-small/large
+//! - Cohere embed-multilingual-v3.0
+//! - E5-multilingual (local, for cross-language search)
+//! - Ollama (local embeddings)
+
 use ceres_core::error::{AppError, GeminiErrorDetails, GeminiErrorKind};
 use ceres_core::HttpConfig;
 use reqwest::Client;
@@ -137,8 +157,14 @@ impl GeminiClient {
         // Sanitize text - replace newlines with spaces
         let sanitized_text = text.replace('\n', " ");
 
+        // TODO(config): Make API endpoint configurable via GEMINI_API_ENDPOINT env var
+        // Useful for: (1) Proxy servers, (2) Self-hosted alternatives, (3) Testing
         let url = "https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent";
 
+        // TODO(config): Make embedding model configurable via GEMINI_EMBEDDING_MODEL env var
+        // Different models offer different cost/quality tradeoffs:
+        // - text-embedding-004 (current): 768 dimensions
+        // - Future models may have different dimensions - handle dynamically
         let request_body = EmbeddingRequest {
             model: "models/text-embedding-004".to_string(),
             content: Content {
