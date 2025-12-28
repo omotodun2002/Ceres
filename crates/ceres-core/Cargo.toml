@@ -6,6 +6,8 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "Core types and error handling for Ceres"
+keywords = ["ckan", "open-data", "semantic-search", "embeddings"]
+categories = ["data-structures"]
 
 [dependencies]
 # Serialization

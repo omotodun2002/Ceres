@@ -60,6 +60,39 @@ RUST_LOG=debug cargo run
 - **Tests**: Increase test coverage
 - **Bug fixes**: Fix issues listed in GitHub Issues
 
+## Releasing
+
+Releases are automated via GitHub Actions. To create a new release:
+
+1. Update version in `Cargo.toml`:
+   ```toml
+   [workspace.package]
+   version = "X.Y.Z"
+   ```
+
+2. Update `CHANGELOG.md`:
+   - Move items from `[Unreleased]` to new version section
+   - Add date: `## [X.Y.Z] - YYYY-MM-DD`
+
+3. Commit changes:
+   ```bash
+   git add Cargo.toml CHANGELOG.md
+   git commit -m "chore: prepare release vX.Y.Z"
+   git push
+   ```
+
+4. Create and push tag:
+   ```bash
+   git tag vX.Y.Z
+   git push origin vX.Y.Z
+   ```
+
+5. Monitor the [Actions tab](https://github.com/AndreaBozzo/Ceres/actions) for the release workflow.
+
+### Version Format
+
+Only stable versions are supported: `vX.Y.Z` (e.g., v0.1.0, v1.0.0).
+
 ## Questions?
 
 Feel free to open an issue for questions or discussions about contributing.

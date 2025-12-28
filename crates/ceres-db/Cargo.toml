@@ -6,6 +6,8 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "Database repository layer for Ceres with pgvector support"
+keywords = ["postgres", "pgvector", "vector-database", "embeddings"]
+categories = ["database"]
 
 [dependencies]
 # Internal

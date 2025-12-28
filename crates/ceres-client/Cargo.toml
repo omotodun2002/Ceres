@@ -6,6 +6,8 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "HTTP clients for CKAN portals and Gemini embeddings API"
+keywords = ["ckan", "gemini", "embeddings", "http-client"]
+categories = ["web-programming::http-client"]
 
 [dependencies]
 # Internal
