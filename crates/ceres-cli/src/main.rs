@@ -11,13 +11,13 @@ use tracing_subscriber::FmtSubscriber;
 
 use std::path::PathBuf;
 
-use ceres_cli::{Command, Config, ExportFormat};
 use ceres_client::{CkanClient, GeminiClient};
 use ceres_core::{
     load_portals_config, needs_reprocessing, BatchHarvestSummary, Dataset, DbConfig, PortalEntry,
     PortalHarvestResult, SyncConfig, SyncOutcome, SyncStats,
 };
 use ceres_db::DatasetRepository;
+use ceres_search::{Command, Config, ExportFormat};
 
 /// Thread-safe wrapper for SyncStats using atomic counters.
 struct AtomicSyncStats {

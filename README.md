@@ -3,7 +3,7 @@
   <h1>Ceres</h1>
   <p><strong>Semantic search engine for open data portals</strong></p>
   <p>
-    <a href="https://crates.io/crates/ceres-cli"><img src="https://img.shields.io/crates/v/ceres-cli.svg" alt="crates.io"></a>
+    <a href="https://crates.io/crates/ceres-search"><img src="https://img.shields.io/crates/v/ceres-search.svg" alt="crates.io"></a>
     <a href="https://github.com/AndreaBozzo/Ceres/actions"><img src="https://github.com/AndreaBozzo/Ceres/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
     <a href="https://github.com/AndreaBozzo/Ceres/blob/master/LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="License"></a>
   </p>
@@ -147,7 +147,7 @@ As shown, the initial cost to index a substantial number of datasets is just a f
 
 ```bash
 # Install from crates.io
-cargo install ceres-cli
+cargo install ceres-search
 
 # Or build from source
 git clone https://github.com/AndreaBozzo/Ceres.git

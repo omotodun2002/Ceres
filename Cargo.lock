@@ -153,28 +153,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "ceres-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "ceres-client",
- "ceres-core",
- "ceres-db",
- "clap",
- "dirs",
- "dotenvy",
- "futures",
- "pgvector",
- "serde_json",
- "sqlx",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "ceres-client"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ceres-core",
  "pgvector",
@@ -187,7 +167,7 @@ dependencies = [
 
 [[package]]
 name = "ceres-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "chrono",
  "dirs",
@@ -205,7 +185,7 @@ dependencies = [
 
 [[package]]
 name = "ceres-db"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ceres-core",
  "chrono",
@@ -214,6 +194,26 @@ dependencies = [
  "serde_json",
  "sqlx",
  "uuid",
+]
+
+[[package]]
+name = "ceres-search"
+version = "0.1.1"
+dependencies = [
+ "anyhow",
+ "ceres-client",
+ "ceres-core",
+ "ceres-db",
+ "clap",
+ "dirs",
+ "dotenvy",
+ "futures",
+ "pgvector",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

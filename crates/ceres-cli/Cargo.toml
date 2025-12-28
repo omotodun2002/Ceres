@@ -1,5 +1,5 @@
 [package]
-name = "ceres-cli"
+name = "ceres-search"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

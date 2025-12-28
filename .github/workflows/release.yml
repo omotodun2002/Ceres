@@ -201,7 +201,7 @@ jobs:
           echo "Waiting 60s for crates.io indexing..."
           sleep 60
 
-          publish_crate ceres-cli
+          publish_crate ceres-search
           echo "All crates published successfully"
 
   release:
