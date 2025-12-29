@@ -1,10 +1,8 @@
 # ceres-core
 
-**The heart of the Ceres engine.**
+This crate serves as the heart of the Ceres engine. It is responsible for the foundation of the system, specifically handling:
 
-`ceres-core` is the central part of the project. It contains the basic rules and building blocks that all other parts of Ceres need to work properly.
+* **Core Types & Errors**: Manages fundamental data structure and system-wide error definitions.
+* **Configuration**: Defines the environment settings and setup required for the project.
+* **Data Models**: Handles specialized models such as Dataset and Portal
 
-### What it does
-* **The Foundation:** It sets up the main data types used throughout the system.
-* **Reliability:** It manages how the system handles errors so it doesn't crash.
-* **Shared Tools:** It provides common tools that help different parts of the project talk to each other.
